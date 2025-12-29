@@ -309,7 +309,9 @@ DATA DE DEVOLUCAO DO VEICULO: {data_fim.strftime('%d/%m/%Y')}
     
     # Adiciona o texto ao PDF (usa latin-1 para compatibilidade com acentos)
     pdf.multi_cell(0, 5, texto.encode('latin-1', 'replace').decode('latin-1'))
-    return pdf.output(dest="S")
+    #return pdf.output(dest="S")
+    pdf_bytes = pdf.output(dest="S")
+    return bytes(pdf_bytes)  # Converte bytearray → bytes
 
 
 def _numero_por_extenso(numero):
@@ -521,7 +523,9 @@ LOCADOR
 """
     
     pdf.multi_cell(0, 5, texto.encode('latin-1', 'replace').decode('latin-1'))
-    return pdf.output(dest="S")
+    pdf_bytes = pdf.output(dest="S")
+    return bytes(pdf_bytes)  # Converte bytearray → bytes
+    #return pdf.output(dest="S")
 
 
 def salvar_pdf_arquivo(pdf_bytes, id_reserva, tipo='contrato'):
