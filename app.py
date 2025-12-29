@@ -2149,7 +2149,7 @@ elif menu == "Reservas":
                             JOIN carros c ON r.carro_id = c.id
                             WHERE r.id = %s
                             """,
-                            (reserva_id,)
+                            (reserva_id_edicao,)
                         )
                         
                         if not dados_contrato_df.empty:
