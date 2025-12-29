@@ -1,0 +1,15 @@
+name: Keep Streamlit App Alive
+
+on:
+  schedule:
+    # Roda a cada 10 minutos
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Permite execução manual
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Streamlit App
+        run: |
+          curl -f https://locadoraiguacu.streamlit.app/ > /dev/null 2>&1 || echo "App pinged"
