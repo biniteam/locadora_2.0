@@ -2,14 +2,35 @@ name: Keep Streamlit App Alive
 
 on:
   schedule:
-    # Roda a cada 60 minutos
-    - cron: '*/60 * * * *'
-  workflow_dispatch: # Permite execução manual
+    - cron: '*/60 * * * *'  # A cada 30 minutos (ajuste para não abusar)
+  workflow_dispatch:
 
 jobs:
-  keep-alive:
+  ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Streamlit App
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install selenium
+
+      - name: Ping app with Selenium
         run: |
-          curl -f https://locadoraiguacu.streamlit.app/ > /dev/null 2>&1 || echo "App pinged"
+          python -c "
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          options = Options()
+          options.add_argument('--headless')
+          options.add_argument('--no-sandbox')
+          options.add_argument('--disable-dev-shm-usage')
+          driver = webdriver.Chrome(options=options)
+          driver.get('https://locadoraiguacu.streamlit.app/')  # Coloque sua URL aqui
+          print('Página carregada:', driver.title)
+          driver.quit()
+          "
