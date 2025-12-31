@@ -2,7 +2,7 @@ name: Keep Streamlit App Alive
 
 on:
   schedule:
-    - cron: '*/60 * * * *'  # A cada 30 minutos (ajuste para não abusar)
+    - cron: '*/240 * * * *'  # A cada 240 minutos (ajuste para não abusar)
   workflow_dispatch:
 
 jobs:
