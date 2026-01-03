@@ -149,7 +149,8 @@ def init_db_production() -> bool:
         bool: True se a inicialização for bem-sucedida, False caso contrário
     """
     logger.info("Iniciando inicialização do banco de dados...")
-    logger.debug(f"Configurações do banco: { {k: '***' if 'pass' in k.lower() else v for k, v in DB_CONFIG.items()} }")
+    #logger.debug(f"Configurações do banco: { {k: '***' if 'pass' in k.lower() else v for k, v in DB_CONFIG.items()} }")
+    logger.debug("Configurações do banco verificadas")
     
     # Verifica se o diretório de logs existe
     os.makedirs('logs', exist_ok=True)
