@@ -13,9 +13,6 @@ from supabase import create_client, Client
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 
-# Log para depuração (pode ser removido após teste)
-print(f"Conectando ao Supabase em: {SUPABASE_URL}")
-
 # Constantes de nível de usuário
 USER_ROLES = {
     'admin': 'Administrador',
@@ -42,8 +39,8 @@ class SupabaseAuthManager:
     def _init_supabase(self) -> Client:
         """Inicializa o cliente do Supabase"""
         print(f"Iniciando conexão com o Supabase...")
-        print(f"URL: {SUPABASE_URL}")
-        print(f"Chave: {SUPABASE_KEY[:10]}...")  # Mostra apenas os primeiros caracteres da chave por segurança
+        #print(f"URL: {SUPABASE_URL}")
+        #print(f"Chave: {SUPABASE_KEY[:10]}...")  # Mostra apenas os primeiros caracteres da chave por segurança
         
         try:
             print("Criando cliente Supabase...")
