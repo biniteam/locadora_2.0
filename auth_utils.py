@@ -17,7 +17,7 @@ def get_supabase_client():
         supabase_key = st.secrets["supabase"]["key"]
         
         # Log the connection attempt (without sensitive data)
-        logger.info(f"Conectando ao Supabase em: {supabase_url}")
+        logger.info("Conectando ao Supabase ")
         
         # Initialize the client
         client = create_client(supabase_url, supabase_key)
