@@ -290,8 +290,8 @@ DADOS E CARACTERISTICAS DO VEICULO LOCADO:
 
 Marca/Modelo: {carro['modelo'].upper()}
 Placa: {carro['placa'].upper()}
-Chassi: {carro.get('chassi', 'NAO INFORMADO')}
-Renavam: {carro.get('renavam', 'NAO INFORMADO')}
+Chassi: {carro.get('numero_chassi', 'NAO INFORMADO')}
+Renavam: {carro.get('numero_renavam', 'NAO INFORMADO')}
 Prazo de locacao: {prazo_dias} DIAS
 Km do hodometro: {carro.get('km_atual', 0)}
 
