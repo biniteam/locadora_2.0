@@ -2352,6 +2352,7 @@ elif menu == "Entrega do veículo":
 
                 st.toast("Gerando contrato...", icon="📄")
                 try:
+                    dados_carro['km_atual'] = km_confirma # adicionado para atualizar km no contrato 
                     pdf_bytes = gerar_contrato_pdf(
                         dados_cliente,
                         dados_carro,
