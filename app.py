@@ -2617,6 +2617,10 @@ elif menu == "Devolução":
                 # Cálculo de KM rodados
                 km_rodados_totais = km_volta - km_saida_safe
                 km_franquia_reserva = reserva['km_franquia'] if reserva['km_franquia'] is not None else 0
+                
+                if km_rodados_totais > km_franquia_reserva:
+                    km_franquia_reserva = 0
+                    
                 km_a_cobrar = max(0, km_rodados_totais - km_franquia_reserva)
                 custo_km = km_a_cobrar * reserva['preco_km']
                 
