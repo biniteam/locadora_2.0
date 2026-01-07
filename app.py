@@ -3176,7 +3176,7 @@ elif menu == "Relatórios":
         st.warning("Nenhum veículo ativo encontrado para gerar o relatório.")
     else:
         # Separar carros únicos e reservas
-        df_carros = df_relatorio_data[['id', 'modelo', 'placa']].drop_duplicates()
+        df_carros = df_relatorio_data[['id', 'modelo', 'placa']].drop_duplicates().reset_index(drop=True)
         df_reservas = df_relatorio_data[df_relatorio_data['carro_id'].notna()][['carro_id', 'data_inicio', 'data_fim', 'reserva_status']]
 
         # Criar a estrutura para o relatório
