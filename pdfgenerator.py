@@ -279,11 +279,10 @@ foro da comarca de Capanema - PR.
 Por estarem assim justos e contratados, firmam o presente instrumento, em duas vias de igual
 teor e forma, juntamente com 2 (duas) testemunhas.
 
-Capanema, {formatar_data_portugues(date.today())}.
 
 
-____________________________________
-{cliente['nome'].upper()}
+
+
 
 
 DADOS E CARACTERISTICAS DO VEICULO LOCADO:
@@ -303,6 +302,8 @@ conforme contrato de locacao de veiculos firmado.
 
 ____________________________________
 {cliente['nome'].upper()}
+
+Capanema, {formatar_data_portugues(date.today())}.
 
 DATA DE DEVOLUCAO DO VEICULO: {data_fim.strftime('%d/%m/%Y')}
 """
