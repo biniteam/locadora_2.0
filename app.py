@@ -2352,7 +2352,6 @@ elif menu == "Entrega do veículo":
 
                 st.toast("Gerando contrato...", icon="📄")
                 try:
-                    dados_carro['km_atual'] = km_confirma # adicionado para atualizar km no contrato 
                     pdf_bytes = gerar_contrato_pdf(
                         dados_cliente,
                         dados_carro,
@@ -2472,6 +2471,7 @@ elif menu == "Entrega do veículo":
                         total_pago = adiantamento_reserva + valor_pago_agora
                         valor_restante = max(0.0, valor_previsto - total_pago)
 
+                        dados_carro['km_atual'] = km_confirma  # Atualiza a quilometragem do carro
                         sucesso, mensagem, pdf_bytes = finalizar_entrega_simples(
                             carro_id=int(reserva_row['carro_id']),
                             id_reserva_sel=reserva_id,
