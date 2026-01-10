@@ -643,8 +643,16 @@ def validar_cnh_simplificada(dados_cliente):
         st.warning("Validade da CNH não informada.")
         return False
     validade_date = pd.to_datetime(validade).date()
+    
+    # Calcular data limite (30 dias a partir de hoje)
+    data_limite = date.today() + timedelta(days=30)
+    
     if validade_date < date.today():
         st.error(f"CNH expirada em {validade_date.strftime('%d/%m/%Y')}.")
+        return False
+    elif validade_date < data_limite:
+        dias_restantes = (validade_date - date.today()).days
+        st.error(f"CNH vence em {dias_restantes} dias ({validade_date.strftime('%d/%m/%Y')}). É necessário mínimo de 30 dias de validade para locação.")
         return False
     return True
 
