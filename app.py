@@ -1482,7 +1482,7 @@ elif menu == "Reservas":
                         cliente_id = int(cliente_sel.split(" - ")[0])
                         
                         # Mostrar veículos disponíveis
-                        veiculos_opcoes = format_vehicle_options(carros_disponiveis)
+                        veiculos_opcoes = ["Selecione o veículo..."] + format_vehicle_options(carros_disponiveis)
                         carro_sel = st.selectbox("Veículos disponíveis", veiculos_opcoes, key="reserva_simples_carro")
                         
                         if carro_sel != "Nenhum veículo disponível" and carro_sel != "Selecione o veículo...":
