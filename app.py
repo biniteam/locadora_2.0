@@ -384,8 +384,8 @@ def check_password():
             st.caption("Informe suas credenciais para acessar o sistema.")
 
             with st.form("login_form"):
-                st.text_input("Email", key="username", placeholder="seu@email.com")
-                st.text_input("Senha", type="password", key="password", placeholder="••••••••")
+                st.text_input("Email", key="username", placeholder="seu@email.com", autocomplete="email")
+                st.text_input("Senha", type="password", key="password", placeholder="••••••••", autocomplete="current-password")
                 
                 submitted = st.form_submit_button("Entrar", type="primary", width='stretch')
 
