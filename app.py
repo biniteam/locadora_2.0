@@ -1806,7 +1806,6 @@ elif menu == "Reservas":
                                 nova_data_inicio,
                                 nova_data_fim,
                                 permitir_dia_devolucao=False,
-                                reserva_id_to_exclude=reserva_id,
                             )
                             
                             # Verificar se o carro atual ainda está disponível e adicioná-lo à lista
