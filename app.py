@@ -1605,619 +1605,428 @@ elif menu == "Reservas":
                 st.warning("⚠️ Nenhum veículo disponível para o período selecionado. Tente outras datas.")
 
     with tab_editar:
-        st.subheader("Gerenciar reservas em andamento")
-        reservas_edicao_df = run_query_dataframe("""
+        getcontext().prec = 28
+
+        reservas_df = run_query_dataframe(
+            """
             SELECT 
-                r.id, r.carro_id, r.cliente_id, r.data_inicio, r.data_fim, r.reserva_status, r.status,
-                r.total_diarias, r.valor_total, r.valor_restante, r.adiantamento,
-                r.valor_multas, r.valor_danos, r.valor_outros, r.desconto_cliente, r.km_franquia,
-                c.nome AS cliente_nome, c.telefone,
+                r.id, r.carro_id, r.cliente_id, r.data_inicio, r.data_fim, 
+                r.reserva_status, r.total_diarias, r.valor_total, r.valor_restante, 
+                r.adiantamento, r.km_franquia, r.desconto_cliente, r.meia_diaria,
+                c.nome AS cliente_nome, 
                 carros.marca, carros.modelo, carros.placa, carros.diaria
             FROM reservas r
             JOIN clientes c ON r.cliente_id = c.id
             JOIN carros ON r.carro_id = carros.id
             WHERE r.status = 'Ativa'
+            AND r.reserva_status IN ('Reservada', 'Locada')
             ORDER BY r.data_inicio DESC
-        """)
+            """
+        )
 
-        if reservas_edicao_df.empty:
-            st.info("Nenhuma reserva ativa encontrada para edição.")
+        if reservas_df.empty:
+            st.info("Nenhuma reserva ativa encontrada.")
+            
         else:
-            df_display = reservas_edicao_df.copy()
-            df_display['data_inicio'] = pd.to_datetime(df_display['data_inicio']).dt.strftime('%d/%m/%Y')
-            df_display['data_fim'] = pd.to_datetime(df_display['data_fim']).dt.strftime('%d/%m/%Y')
+            df_exibir = reservas_df.copy()
+            df_exibir["Período"] = df_exibir.apply(
+                lambda r: f"{pd.to_datetime(r['data_inicio']).date().strftime('%d/%m/%Y')} → {pd.to_datetime(r['data_fim']).date().strftime('%d/%m/%Y')}",
+                axis=1,
+            )
+            df_exibir["Cliente"] = df_exibir["cliente_nome"]
+            df_exibir["Veículo"] = df_exibir.apply(
+                lambda r: f"{r['marca']} {r['modelo']} ({r['placa']})",
+                axis=1,
+            )
+            df_exibir["Status"] = df_exibir["reserva_status"]
+            df_exibir["Total"] = df_exibir["valor_total"].apply(formatar_moeda)
+            df_exibir["Restante"] = df_exibir["valor_restante"].apply(formatar_moeda)
+
             st.dataframe(
-                df_display[[
-                    'id', 'cliente_nome', 'modelo', 'placa', 'data_inicio', 'data_fim', 'reserva_status', 'valor_total','adiantamento',  'valor_restante'     
-                ]],
-                width='stretch'
+                df_exibir[["id", "Cliente", "Veículo", "Período", "Status", "Total", "Restante"]],
+                width='stretch',
+                hide_index=True,
             )
 
-            opcoes_reserva = ["Selecione uma reserva..."] + reservas_edicao_df.apply(
-                lambda r: f"ID {r['id']} • {r['cliente_nome']} ({r['modelo']} - {r['placa']} status: {r['reserva_status']} - {r['data_inicio']} - {r['data_fim']} )",
-                axis=1
+            opcoes_reserva = [
+                "Selecione uma reserva..."
+            ] + reservas_df.apply(
+                lambda r: f"#{int(r['id'])} | {r['cliente_nome']} | {r['marca']} {r['modelo']} ({r['placa']}) | {r['reserva_status']}",
+                axis=1,
             ).tolist()
-            reserva_escolhida = st.selectbox(
-                "Selecione a reserva que deseja editar",
-                opcoes_reserva,
-                key="gerenciar_reserva_edit"
-            )
+
+            reserva_escolhida = st.selectbox("Selecionar reserva", opcoes_reserva)
 
             if reserva_escolhida != "Selecione uma reserva...":
-                try:
-                    reserva_id_edicao = int(reserva_escolhida.split(" ")[1])
-                except (ValueError, IndexError):
-                    st.error("Não foi possível identificar a reserva selecionada.")
-                    st.stop()
+                # Limpar session state de cálculos ao trocar de reserva
+                if 'valores_calculados' in st.session_state:
+                    del st.session_state.valores_calculados
+                if 'calcular_valores' in st.session_state:
+                    del st.session_state.calcular_valores
+                    
+                reserva_id = int(reserva_escolhida.split("|")[0].strip().replace("#", ""))
+                reserva = reservas_df[reservas_df["id"] == reserva_id].iloc[0].to_dict()
 
-                dados_reserva_df = run_query_dataframe("SELECT * FROM reservas WHERE id=%s", (reserva_id_edicao,))
-                if dados_reserva_df.empty:
-                    st.error("Não foi possível carregar os dados completos da reserva.")
-                    st.stop()
-                dados_reserva = dados_reserva_df.iloc[0].to_dict()
+                data_inicio_original = pd.to_datetime(reserva["data_inicio"]).date()
+                data_fim_original = pd.to_datetime(reserva["data_fim"]).date()
+                carro_antigo_id = int(reserva["carro_id"])
 
-                cliente_atual_id = int(dados_reserva.get('cliente_id'))
-                carro_atual_id = int(dados_reserva.get('carro_id'))
-                data_inicio_reserva = pd.to_datetime(dados_reserva['data_inicio']).date()
-                data_fim_reserva = pd.to_datetime(dados_reserva['data_fim']).date()
-
-                clientes_df = run_query_dataframe("SELECT id, nome FROM clientes ORDER BY nome")
-                
-                # Inicialmente, mostrar todos os carros disponíveis para as datas atuais da reserva
-                carros_query = """
-                    SELECT id, marca, modelo, placa, diaria, status
-                    FROM carros
-                    WHERE status NOT IN (%s, %s)
-                    AND id NOT IN (
-                        SELECT carro_id FROM reservas
-                        WHERE reserva_status IN ('Reservada', 'Locada')
-                        AND (data_inicio <= %s AND data_fim >= %s)
-                        AND id != %s
-                    )
-                    ORDER BY marca, modelo
-                """
-                carros_df = run_query_dataframe(
-                    carros_query,
-                    (STATUS_CARRO['EXCLUIDO'], STATUS_CARRO['INDISPONIVEL'], data_fim_reserva, data_inicio_reserva, reserva_id_edicao)
+                st.markdown(
+                    f"### Reserva **#{reserva_id}** | **{reserva['cliente_nome']}** | **{reserva['marca']} {reserva['modelo']} ({reserva['placa']})**"
                 )
 
-                if clientes_df.empty or carros_df.empty:
-                    st.error("Cadastre clientes e veículos para editar reservas.")
-                    st.stop()
+                col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+                col_m1.metric("Status", str(reserva.get("reserva_status", "")))
+                col_m2.metric("Total", formatar_moeda(reserva.get("valor_total", 0)))
+                col_m3.metric("Adiantamento", formatar_moeda(reserva.get("adiantamento", 0)))
+                col_m4.metric("Restante", formatar_moeda(reserva.get("valor_restante", 0)))
 
-                horario_padrao = dados_reserva.get('horario_entrega')
-                if horario_padrao:
-                    try:
-                        horario_padrao = pd.to_datetime(str(horario_padrao)).time()
-                    except Exception:
-                        horario_padrao = datetime.strptime("09:00", "%H:%M").time()
-                else:
-                    horario_padrao = datetime.strptime("09:00", "%H:%M").time()
+                dados_pdf_df = run_query_dataframe(
+                    """
+                    SELECT 
+                        r.id, r.data_inicio, r.data_fim,
+                        cl.nome, cl.cpf, cl.cnh, cl.telefone, cl.endereco,
+                        c.id AS carro_id, c.marca, c.modelo, c.placa, c.cor,
+                        c.km_atual, c.diaria, c.preco_km, c.numero_chassi, c.numero_renavam, c.ano_veiculo
+                    FROM reservas r
+                    JOIN clientes cl ON r.cliente_id = cl.id
+                    JOIN carros c ON r.carro_id = c.id
+                    WHERE r.id = %s
+                    """,
+                    (reserva_id,),
+                )
 
-                status_padrao = dados_reserva.get('status') or 'Ativa'
-                reserva_status_padrao = dados_reserva.get('reserva_status') or STATUS_RESERVA['RESERVADA']
+                dados_pdf = dados_pdf_df.iloc[0].to_dict() if not dados_pdf_df.empty else {}
 
-                clientes_opcoes = clientes_df.apply(
-                    lambda c: f"{c['id']} - {c['nome']}",
-                    axis=1
-                ).tolist()
-                try:
-                    idx_cliente = next(i for i, op in enumerate(clientes_opcoes) if op.startswith(f"{cliente_atual_id} -"))
-                except StopIteration:
-                    idx_cliente = 0
+                if reserva.get("reserva_status") == "Locada":
+                    st.info("🔒 Modo Restrito: reserva **Locada**. Permitido apenas registrar pagamentos extras e gerar contrato.")
 
-                # Inicializar variáveis que serão definidas dinamicamente após a seleção de datas
-                carros_opcoes = []
-                idx_carro = 0
+                    valor_restante_atual = float(reserva.get("valor_restante") or 0.0)
+                    valor_restante_max = max(0.0, valor_restante_atual)
 
-                desconto_default = float(dados_reserva.get('desconto_cliente') or 0.0)
-                meia_diaria_default = bool(dados_reserva.get('meia_diaria') or False)
-                km_franquia_default = int(dados_reserva.get('km_franquia') or 0)
-                km_saida_default = int(dados_reserva.get('km_saida') or 0)
-                km_volta_default = int(dados_reserva.get('km_volta') or km_saida_default)
-                custo_lavagem_default = float(dados_reserva.get('custo_lavagem') or 0.0)
-                adiantamento_default = float(dados_reserva.get('adiantamento') or 0.0)
-                valor_total_default = float(dados_reserva.get('valor_total') or 0.0)
-                valor_multas_default = float(dados_reserva.get('valor_multas') or 0.0)
-                valor_danos_default = float(dados_reserva.get('valor_danos') or 0.0)
-                valor_outros_default = float(dados_reserva.get('valor_outros') or 0.0)
-                valor_diarias_default = float(dados_reserva.get('total_diarias') or 0.0)
-                total_diarias_default = float(dados_reserva.get('total_diarias') or 0.0)
-                pagamento_parcial_default = float(dados_reserva.get('pagamento_parcial_entrega') or 0.0)
-                valor_restante_default = float(dados_reserva.get('valor_restante') or max(0.0, total_diarias_default - adiantamento_default - pagamento_parcial_default))
-                status_pagamento_existe = 'status_pagamento' in dados_reserva
-                observacoes_existe = 'observacoes' in dados_reserva
-                status_pagamento_default = dados_reserva.get('status_pagamento', 'Pendente')
-                observacoes_default = dados_reserva.get('observacoes', '') or ''
-
-                st.markdown(f"### ✏️ Editando reserva #{reserva_id_edicao}")
-
-                # Chaves de estado para controlar comportamento reativo de datas
-                data_inicio_key = f"data_inicio_edit_{reserva_id_edicao}"
-                data_inicio_prev_key = f"{data_inicio_key}_prev"
-                data_fim_key = f"data_fim_edit_{reserva_id_edicao}"
-                data_fim_prev_key = f"{data_fim_key}_prev"
-                data_fim_auto_key = f"{data_fim_key}_auto"
-                carro_select_key = f"carro_edit_{reserva_id_edicao}"
-
-                if data_inicio_key not in st.session_state:
-                    st.session_state[data_inicio_key] = data_inicio_reserva
-                if data_inicio_prev_key not in st.session_state:
-                    st.session_state[data_inicio_prev_key] = st.session_state[data_inicio_key]
-
-                if data_fim_key not in st.session_state:
-                    st.session_state[data_fim_key] = data_fim_reserva
-                if st.session_state[data_fim_key] < st.session_state[data_inicio_key]:
-                    st.session_state[data_fim_key] = st.session_state[data_inicio_key] + timedelta(days=1)
-                if data_fim_prev_key not in st.session_state:
-                    st.session_state[data_fim_prev_key] = st.session_state[data_fim_key]
-                if data_fim_auto_key not in st.session_state:
-                    st.session_state[data_fim_auto_key] = True
-
-                carro_atual_info_df = carros_df[carros_df['id'] == carro_atual_id]
-                if not carro_atual_info_df.empty:
-                    carro_atual_label = format_vehicle_options(carro_atual_info_df)[0]
-                else:
-                    carro_atual_label = f"{carro_atual_id} - Veículo atual"
-                if carro_select_key not in st.session_state:
-                    st.session_state[carro_select_key] = carro_atual_label
-
-                col_basicos = st.columns(2)
-                with col_basicos[0]:
-                    cliente_escolhido = st.selectbox(
-                        "Cliente",
-                        clientes_opcoes,
-                        index=idx_cliente,
-                        key=f"cliente_edit_{reserva_id_edicao}"
-                    )
-                    status_opcoes = ["Ativa", "Inativa"]
-                    status_escolhido = st.selectbox(
-                        "Status operacional",
-                        status_opcoes,
-                        index=status_opcoes.index(status_padrao) if status_padrao in status_opcoes else 0,
-                        key=f"status_edit_{reserva_id_edicao}"
-                    )
-                    if status_pagamento_existe:
-                        status_pagamento_input = st.text_input(
-                            "Status do pagamento",
-                            value=status_pagamento_default,
-                            key=f"status_pag_edit_{reserva_id_edicao}"
+                    with st.form(f"form_pagamento_locada_{reserva_id}"):
+                        pagamento_adicional = st.number_input(
+                            "Valor a pagar (R$)",
+                            min_value=0.0,
+                            value=0.0,
+                            step=10.0,
+                            format="%.2f",
                         )
-                with col_basicos[1]:
-                    reserva_status_opcoes = list(STATUS_RESERVA.values())
-                    reserva_status_escolhido = st.selectbox(
-                        "Status da reserva",
-                        reserva_status_opcoes,
-                        index=reserva_status_opcoes.index(reserva_status_padrao) if reserva_status_padrao in reserva_status_opcoes else 0,
-                        key=f"reserva_status_edit_{reserva_id_edicao}"
-                    )
-                    meia_diaria_input = st.checkbox(
-                        "Aplicar meia diária",
-                        value=meia_diaria_default,
-                        key=f"meia_diaria_edit_{reserva_id_edicao}"
-                    )
-                    carro_select_placeholder = st.empty()
-                    carro_select_placeholder.info("Selecione as datas para listar veículos disponíveis.")
+                        col_p1, col_p2 = st.columns(2)
+                        submit_pagamento = col_p1.form_submit_button("💳 Registrar pagamento", type="primary")
+                        submit_pdf = col_p2.form_submit_button("📄 Gerar contrato PDF")
 
-                col_datas = st.columns(3)
-                with col_datas[0]:
-                    data_inicio_input = st.date_input(
-                        "Data de retirada",
-                        #value=st.session_state[data_inicio_key],
-                        min_value=date.today(),
-                        key=data_inicio_key
-                    )
-                    data_inicio_prev = st.session_state[data_inicio_prev_key]
-                    if data_inicio_input != data_inicio_prev:
-                        st.session_state[data_inicio_prev_key] = data_inicio_input
-                        if st.session_state[data_fim_auto_key]:
-                            nova_devolucao = data_inicio_input + timedelta(days=1)
-                            st.session_state[data_fim_key] = nova_devolucao
-                            st.session_state[data_fim_prev_key] = nova_devolucao
-                    else:
-                        st.session_state[data_inicio_prev_key] = data_inicio_input
-                with col_datas[1]:
-                    if st.session_state[data_fim_key] < data_inicio_input:
-                        st.session_state[data_fim_key] = data_inicio_input
-                        st.session_state[data_fim_prev_key] = data_inicio_input
-                    data_fim_input = st.date_input(
-                        "Data de devolução",
-                        #value=st.session_state[data_fim_key],
-                        min_value=data_inicio_input,
-                        key=data_fim_key
-                    )
-                    data_fim_prev = st.session_state[data_fim_prev_key]
-                    if data_fim_input != data_fim_prev:
-                        st.session_state[data_fim_auto_key] = False
-                    st.session_state[data_fim_prev_key] = data_fim_input
-                with col_datas[2]:
-                    horario_input = st.time_input(
-                        "Horário de entrega",
-                        value=horario_padrao,
-                        key=f"horario_edit_{reserva_id_edicao}"
-                    )
-
-                datas_alteradas = (data_inicio_input != data_inicio_reserva or data_fim_input != data_fim_reserva)
-                carros_disponiveis_edit = pd.DataFrame()
-                carro_escolhido = None
-
-                if data_inicio_input and data_fim_input:
-                    carro_select_placeholder.empty()
-                    if datas_alteradas:
-                        carros_disponiveis_edit = get_available_vehicles(data_inicio_input, data_fim_input)
-
-                        if check_vehicle_availability(carro_atual_id, data_inicio_input, data_fim_input, reserva_id_edicao):
-                            carro_atual_info = carros_df[carros_df['id'] == carro_atual_id]
-                            if not carro_atual_info.empty:
-                                carros_disponiveis_edit = pd.concat([carros_disponiveis_edit, carro_atual_info], ignore_index=True)
-                    else:
-                        carros_disponiveis_edit = carros_df.copy()
-
-                    if not carros_disponiveis_edit.empty:
-                        carros_disponiveis_edit = carros_disponiveis_edit.drop_duplicates(subset='id', keep='first')
-                        carros_opcoes = format_vehicle_options(carros_disponiveis_edit)
+                    if submit_pagamento:
                         try:
-                            idx_carro = next(i for i, op in enumerate(carros_opcoes) if op.startswith(f"{carro_atual_id} -"))
-                        except StopIteration:
-                            idx_carro = 0
-
-                        carro_escolhido = carro_select_placeholder.selectbox(
-                            "Veículo disponível para o período selecionado",
-                            carros_opcoes,
-                            index=idx_carro,
-                            key=carro_select_key
-                        )
-
-                        if carro_escolhido:
-                            carro_id = int(carro_escolhido.split(" - ")[0])
-                            if check_vehicle_availability(carro_id, data_inicio_input, data_fim_input, reserva_id_edicao):
-                                st.success("✅ Veículo disponível para o período selecionado")
+                            if pagamento_adicional <= 0:
+                                st.error("Informe um valor maior que zero.")
                             else:
-                                st.error("❌ Veículo não disponível para o período selecionado")
-                    else:
-                        st.session_state[carro_select_key] = ""
-                        carro_select_placeholder.warning("Nenhum veículo disponível para o período informado. Ajuste as datas para continuar.")
-                else:
-                    carro_select_placeholder.info("Selecione as datas para listar veículos disponíveis.")
+                                novo_adiantamento = float(reserva.get("adiantamento") or 0.0) + float(pagamento_adicional)
+                                novo_restante = float(valor_restante_atual) - float(pagamento_adicional)
+                                run_query(
+                                    "UPDATE reservas SET adiantamento=%s, valor_restante=%s WHERE id=%s",
+                                    (novo_adiantamento, novo_restante, reserva_id),
+                                )
+                                st.success("✅ Pagamento registrado!")
+                                time.sleep(0.8)
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao registrar pagamento: {e}")
 
-                carro_escolhido = st.session_state.get(carro_select_key)
+                    if submit_pdf:
+                        try:
+                            cliente_pdf = {
+                                'nome': dados_pdf.get('nome'),
+                                'cpf': dados_pdf.get('cpf'),
+                                'cnh': dados_pdf.get('cnh'),
+                                'telefone': dados_pdf.get('telefone'),
+                                'endereco': dados_pdf.get('endereco'),
+                            }
+                            carro_pdf = {
+                                'id': dados_pdf.get('carro_id'),
+                                'marca': dados_pdf.get('marca'),
+                                'modelo': dados_pdf.get('modelo'),
+                                'placa': dados_pdf.get('placa'),
+                                'cor': dados_pdf.get('cor'),
+                                'km_atual': dados_pdf.get('km_atual'),
+                                'diaria': dados_pdf.get('diaria'),
+                                'preco_km': dados_pdf.get('preco_km'),
+                                'numero_chassi': dados_pdf.get('numero_chassi'),
+                                'numero_renavam': dados_pdf.get('numero_renavam'),
+                                'ano_veiculo': dados_pdf.get('ano_veiculo'),
+                            }
+                            pdf_bytes = gerar_contrato_pdf(
+                                cliente_pdf,
+                                carro_pdf,
+                                pd.to_datetime(dados_pdf.get('data_inicio')).date(),
+                                pd.to_datetime(dados_pdf.get('data_fim')).date(),
+                                None,
+                            )
+                            st.download_button(
+                                "⬇️ Baixar contrato",
+                                data=pdf_bytes,
+                                file_name=f"contrato_reserva_{reserva_id}.pdf",
+                                mime="application/pdf",
+                                width='stretch',
+                            )
+                        except Exception as e:
+                            st.error(f"Erro ao gerar contrato: {e}")
 
-                col_km = st.columns(3)
-                km_saida_input = col_km[0].number_input(
-                    "KM de saída",
-                    min_value=0,
-                    value=km_saida_default,
-                    step=10,
-                    key=f"km_saida_edit_{reserva_id_edicao}"
-                )
-                km_volta_input = col_km[1].number_input(
-                    "KM de retorno (se já registrado)",
-                    min_value=km_saida_input,
-                    value=max(km_volta_default, km_saida_input),
-                    step=10,
-                    key=f"km_volta_edit_{reserva_id_edicao}"
-                )
-                km_franquia_input = col_km[2].number_input(
-                    "Franquia de KM",
-                    min_value=0,
-                    value=km_franquia_default,
-                    step=10,
-                    key=f"km_franquia_edit_{reserva_id_edicao}"
-                )
+                elif reserva.get("reserva_status") == "Reservada":
 
-                col_fin1 = st.columns(3)
-                adiantamento_input = col_fin1[0].number_input(
-                    "Adiantamento (R$)",
-                    min_value=0.0,
-                    value=adiantamento_default,
-                    step=10.0,
-                    format="%.2f",
-                    key=f"adiantamento_edit_{reserva_id_edicao}"
-                )
-                pagamento_parcial_input = col_fin1[1].number_input(
-                    "Pagamento parcial na entrega (R$)",
-                    min_value=0.0,
-                    value=pagamento_parcial_default,
-                    step=10.0,
-                    format="%.2f",
-                    key=f"pag_parcial_edit_{reserva_id_edicao}"
-                )
-                
-                col_fin2 = st.columns(3)
-                valor_restante_input = col_fin2[0].number_input(
-                    "Valor restante (R$)",
-                    min_value=0.0,
-                    value=valor_restante_default,
-                    step=10.0,
-                    format="%.2f",
-                    key=f"valor_restante_edit_{reserva_id_edicao}",
-                    disabled=True
-                )
-                
-                # Inicializar variáveis que serão usadas nas verificações
-                valor_diarias_calculado = valor_diarias_default
-                total_diarias_calculado = total_diarias_default
-                
-                # Definir inputs que serão usados na verificação antes de usá-los
-                desconto_input = col_fin2[2].number_input(
-                    "Desconto concedido (R$)",
-                    min_value=0.0,
-                    value=desconto_default,
-                    step=10.0,
-                    format="%.2f",
-                    key=f"desconto_edit_{reserva_id_edicao}"
-                )
-                
-                # Verificar se campos que afetam o cálculo foram alterados (antes de usar nos inputs)
-                meia_diaria_alterada = (meia_diaria_input != meia_diaria_default)
-                desconto_alterado = (desconto_input != desconto_default)
-                campos_calculo_alterados = datas_alteradas or meia_diaria_alterada or desconto_alterado
-                
-                # Recalcular total de diárias se datas, meia diária ou desconto foram alterados e veículo foi selecionado
-                if campos_calculo_alterados and carro_escolhido and data_inicio_input and data_fim_input:
-                    try:
-                        carro_id_selecionado = int(carro_escolhido.split(" - ")[0])
-                        carro_info_df = carros_disponiveis_edit[carros_disponiveis_edit['id'] == carro_id_selecionado]
-                        if not carro_info_df.empty:
-                            diaria_veiculo = float(carro_info_df.iloc[0]['diaria'])
-                            dias_periodo = (data_fim_input - data_inicio_input).days 
-                            dias_periodo = max(1, dias_periodo)
-                            
-                            # Calculate valor_diarias (dias * valor diaria) - sem desconto
-                            if meia_diaria_input and dias_periodo > 0:
-                                valor_diarias_calculado = diaria_veiculo * (dias_periodo - 1) + (diaria_veiculo * 0.5)
-                            else:
-                                valor_diarias_calculado = diaria_veiculo * dias_periodo
-                            
-                            # valor_diarias_calculado já contém o valor total sem desconto
-                            total_diarias_calculado = valor_diarias_calculado
+                    # Inicializar session state para cálculos dinâmicos
+                    if 'valores_calculados' not in st.session_state:
+                        st.session_state.valores_calculados = {}
 
-                            st.info(f"📊 Total de diárias recalculado: R$ {total_diarias_calculado:.2f} ({dias_periodo} dias)")
-                    except (ValueError, IndexError, KeyError):
-                        pass
-
-                total_diarias_input = col_fin2[1].number_input(
-                "Total de diárias (R$)" + (" 📊" if campos_calculo_alterados else ""),
-                min_value=0.0,
-                value=total_diarias_calculado if campos_calculo_alterados else total_diarias_default,
-                format="%.2f",
-                key=f"total_diarias_edit_{reserva_id_edicao}",
-                disabled=True,
-                help="Valor calculado automaticamente: diária × número de dias"
-                )
-
-                col_fin3 = st.columns(3)
-                valor_multas_input = col_fin3[0].number_input(
-                    "Multas (R$)",
-                    min_value=0.0,
-                    value=valor_multas_default,
-                    step=10.0,
-                    format="%.2f",
-                    key=f"multas_edit_{reserva_id_edicao}"
-                )
-                valor_danos_input = col_fin3[1].number_input(
-                    "Danos (R$)",
-                    min_value=0.0,
-                    value=valor_danos_default,
-                    step=10.0,
-                    format="%.2f",
-                    key=f"danos_edit_{reserva_id_edicao}"
-                )
-                valor_outros_input = col_fin3[2].number_input(
-                    "Outros custos (R$)",
-                    min_value=0.0,
-                    value=valor_outros_default,
-                    step=10.0,
-                    format="%.2f",
-                    key=f"outros_edit_{reserva_id_edicao}"
-                )
-
-                col_fin4 = st.columns(2)
-                custo_lavagem_input = col_fin4[0].number_input(
-                    "Custo de lavagem (R$)",
-                    min_value=0.0,
-                    value=custo_lavagem_default,
-                    step=10.0,
-                    format="%.2f",
-                    key=f"lavagem_edit_{reserva_id_edicao}"
-                )
-                if observacoes_existe:
-                    observacoes_input = col_fin4[1].text_area(
-                        "Observações",
-                        value=observacoes_default,
-                        key=f"observacoes_edit_{reserva_id_edicao}"
-                    )
-
-                salvar_alt = st.button(
-                    "💾 Salvar alterações",
-                    type="primary",
-                    width='stretch',
-                    key=f"salvar_edit_{reserva_id_edicao}"
-                )
-
-                if salvar_alt:
-                    if data_fim_input < data_inicio_input:
-                        st.error("A data de devolução precisa ser posterior à data de retirada.")
-                        st.stop()
-
-                    cliente_id_novo = int(cliente_escolhido.split(" - ")[0])
-                    carro_id_novo = int(carro_escolhido.split(" - ")[0])
-                    
-                    # Verificar disponibilidade do veículo antes de salvar
-                    if not check_vehicle_availability(carro_id_novo, data_inicio_input, data_fim_input, reserva_id_edicao):
-                        st.error("❌ Não é possível salvar: o veículo não está disponível para o período selecionado.")
-                        st.stop()
-                    
-                    # Calcular valor total automaticamente antes de atualizar
-                    dados_carro_update = run_query(
-                        "SELECT diaria FROM carros WHERE id = %s", 
-                        (carro_id_novo,),
-                        fetch=True
-                    )
-                    if not dados_carro_update.empty:
-                        dados_carro_update = dados_carro_update.iloc[0]
-                        dias_locacao_edit = (data_fim_input - data_inicio_input).days + 0
-                        dias_locacao_edit = max(1, dias_locacao_edit)
-                        # Calcular subtotal (diárias + multas + danos + outros + lavagem)
-                        subtotal_calculado = total_diarias_calculado + valor_multas_input + valor_danos_input + valor_outros_input + custo_lavagem_input
-                        # Aplicar desconto sobre o valor total
-                        valor_total_calculado = max(0.0, subtotal_calculado - desconto_input)
-                    else:
-                        valor_total_calculado = max(0.0, valor_multas_input + valor_danos_input + valor_outros_input + custo_lavagem_input - desconto_input)
+                    # Fragment para controle de rerun granular
+                    @st.fragment
+                    def fragment_edicao_reserva():
+                        # Inputs fora do formulário para permitir callbacks
+                        st.markdown("### 📝 Editar Dados da Reserva")
                         
-                    campos_update = {
-                        "cliente_id": cliente_id_novo,
-                        "carro_id": carro_id_novo,
-                        "data_inicio": data_inicio_input,
-                        "data_fim": data_fim_input,
-                        "horario_entrega": horario_input,
-                        "status": status_escolhido,
-                        "reserva_status": reserva_status_escolhido,
-                        "km_saida": km_saida_input,
-                        "km_volta": km_volta_input,
-                        "km_franquia": km_franquia_input,
-                        "custo_lavagem": custo_lavagem_input,
-                        "adiantamento": adiantamento_input,
-                        "pagamento_parcial_entrega": pagamento_parcial_input,
-                        "valor_multas": valor_multas_input,
-                        "valor_danos": valor_danos_input,
-                        "valor_outros": valor_outros_input,
-                        "desconto_cliente": desconto_input,
-                        "meia_diaria": meia_diaria_input,
-                        "total_diarias": total_diarias_calculado,
-                        "valor_total": valor_total_calculado,
-                        "valor_restante": valor_total_calculado - adiantamento_input - pagamento_parcial_input
-                    }
-                    if status_pagamento_existe:
-                        campos_update["status_pagamento"] = status_pagamento_input
-                    if observacoes_existe:
-                        campos_update["observacoes"] = observacoes_input
-
-                    set_clause = ", ".join([f"{col}=%s" for col in campos_update.keys()])
-                    valores = list(campos_update.values())
-
-                    conn = None
-                    try:
-                        conn = get_db_connection()
-                        conn.autocommit = False
-                        cursor = conn.cursor()
-                        cursor.execute(
-                            f"UPDATE reservas SET {set_clause} WHERE id=%s",
-                            (*valores, reserva_id_edicao)
-                        )
-
-                        if cursor.rowcount == 0:
-                            raise Exception("Nenhuma linha foi atualizada.")
-
-                        status_carro_destino = STATUS_CARRO['DISPONIVEL']
-                        if reserva_status_escolhido == STATUS_RESERVA['RESERVADA']:
-                            status_carro_destino = STATUS_CARRO['RESERVADO']
-                        elif reserva_status_escolhido == STATUS_RESERVA['LOCADA']:
-                            status_carro_destino = STATUS_CARRO['LOCADO']
-
-                        cursor.execute(
-                            "UPDATE carros SET status=%s WHERE id=%s",
-                            (status_carro_destino, carro_id_novo)
-                        )
-
-                        if carro_id_novo != carro_atual_id:
-                            cursor.execute(
-                                "UPDATE carros SET status=%s WHERE id=%s",
-                                (STATUS_CARRO['DISPONIVEL'], carro_atual_id)
+                        # Seção de Datas
+                        with st.expander("📅 Datas da Locação", expanded=True):
+                            col_d1, col_d2 = st.columns(2)
+                            nova_data_inicio = col_d1.date_input(
+                                "Retirada", 
+                                value=data_inicio_original,
+                                key="data_inicio_edit"
+                            )
+                            nova_data_fim = col_d2.date_input(
+                                "Devolução", 
+                                value=data_fim_original, 
+                                min_value=nova_data_inicio,
+                                key="data_fim_edit"
                             )
 
-                        conn.commit()
-                        st.toast("Reserva atualizada com sucesso!", icon="✅")
-                        st.success(f"Reserva #{reserva_id_edicao} atualizada.")
-                        time.sleep(1)
-                        st.rerun()
-                    except Exception as e:
-                        if conn:
-                            conn.rollback()
-                        st.error(f"Erro ao salvar alterações: {e}")
-                    finally:
-                        if conn:
-                            conn.close()
+                        datas_alteradas = (nova_data_inicio != data_inicio_original) or (nova_data_fim != data_fim_original)
 
-                st.markdown("---")
-                gerar_pdf = st.button("📄 Gerar contrato atualizado", key=f"btn_contrato_{reserva_id_edicao}")
-                if gerar_pdf:
-                    if dados_reserva.get('reserva_status') != STATUS_RESERVA['LOCADA']:
-                        st.error("O contrato só pode ser gerado após a entrega efetiva do veículo (status 'Locada').")
-                    else:
-                        # OTIMIZADO: Um único JOIN para buscar cliente e carro
-                        dados_contrato_df = run_query_dataframe(
-                            """
-                            SELECT 
-                                cl.*,
-                                c.*,
-                                r.id as reserva_id
-                            FROM reservas r
-                            JOIN clientes cl ON r.cliente_id = cl.id
-                            JOIN carros c ON r.carro_id = c.id
-                            WHERE r.id = %s
-                            """,
-                            (reserva_id_edicao,)
-                        )
-                        
-                        if not dados_contrato_df.empty:
-                            row = dados_contrato_df.iloc[0]
-                            
-                            # Extrai dados do cliente
-                            cliente_dict = {
-                                'id': row['id'],
-                                'nome': row['nome'],
-                                'cpf': row['cpf'],
-                                'rg': row['rg'],
-                                'cnh': row['cnh'],
-                                'validade_cnh': row['validade_cnh'],
-                                'telefone': row['telefone'],
-                                'endereco': row['endereco'],
-                                'status': row['status']
-                            }
-                            
-                            # Extrai dados do carro
-                            carro_dict = {
-                                'id': row['id'],
-                                'marca': row['marca'],
-                                'modelo': row['modelo'],
-                                'placa': row['placa'],
-                                'cor': row['cor'],
-                                'diaria': row['diaria'],
-                                'preco_km': row['preco_km'],
-                                'km_atual': row['km_atual'],
-                                'status': row['status'],
-                                'numero_chassi': row['numero_chassi'],
-                                'numero_renavam': row['numero_renavam'],
-                                'ano_veiculo': row['ano_veiculo'],
-                                'km_troca_oleo': row['km_troca_oleo']
-                            }
-                            pdf_bytes_contrato = gerar_contrato_pdf(
-                                cliente_dict,
-                                carro_dict,
-                                data_inicio_reserva,
-                                data_fim_reserva,
-                                horario_padrao
+                        if datas_alteradas:
+                            carros_disponiveis = get_available_vehicles(
+                                nova_data_inicio,
+                                nova_data_fim,
+                                permitir_dia_devolucao=False,
+                                reserva_id_to_exclude=reserva_id,
                             )
-                            st.session_state.pdf_para_download = pdf_bytes_contrato
-                            st.session_state.pdf_file_name = f"contrato_reserva_{reserva_id_edicao}.pdf"
-                            st.success("Contrato gerado! Utilize o botão abaixo para baixar.")
+                            
+                            # Verificar se o carro atual ainda está disponível e adicioná-lo à lista
+                            if check_vehicle_availability(carro_antigo_id, nova_data_inicio, nova_data_fim, reserva_id):
+                                carro_atual_df = run_query_dataframe(
+                                    "SELECT id, marca, modelo, placa, diaria, preco_km, cor FROM carros WHERE id=%s",
+                                    (carro_antigo_id,),
+                                )
+                                if not carro_atual_df.empty:
+                                    carros_disponiveis = pd.concat([carros_disponiveis, carro_atual_df], ignore_index=True)
+                                    carros_disponiveis = carros_disponiveis.drop_duplicates(subset=["id"], keep="first")
                         else:
-                            st.error("Não foi possível obter dados completos para gerar o contrato.")
+                            carros_disponiveis = get_available_vehicles(
+                                data_inicio_original,
+                                data_fim_original,
+                                permitir_dia_devolucao=False,
+                                reserva_id_to_exclude=reserva_id,
+                            )
 
-        if st.session_state.get('pdf_para_download'):
-            st.markdown("---")
-            st.download_button(
-                label="📥 Baixar Contrato em PDF",
-                data=st.session_state.pdf_para_download,
-                file_name=st.session_state.pdf_file_name,
-                mime="application/pdf",
-                key="download_contrato_edicao_reserva"
-            )
-            if st.button("✅ Concluído - Limpar", key="limpar_download_contrato"):
-                st.session_state.pdf_para_download = None
-                st.session_state.pdf_file_name = None
-                st.rerun()
+                        veiculos_opcoes = format_vehicle_options(carros_disponiveis)
+                        
+                        # Mostrar informação sobre disponibilidade
+                        if carros_disponiveis.empty:
+                            st.info("ℹ️ Nenhum veículo disponível para o período selecionado. Tente alterar as datas.")
+                        elif len(carros_disponiveis) == 1 and str(veiculos_opcoes[0]).startswith(f"{carro_antigo_id} - "):
+                            st.info("ℹ️ Apenas o veículo atual está disponível para este período.")
+                        
+                        # Encontrar o índice do veículo atual na lista de opções
+                        index_veiculo_atual = 0
+                        if veiculos_opcoes and veiculos_opcoes[0] != "Nenhum veículo disponível":
+                            for i, opcao in enumerate(veiculos_opcoes):
+                                if str(opcao).startswith(f"{carro_antigo_id} - "):
+                                    index_veiculo_atual = i
+                                    break
+                        
+                        # Seção de Veículo
+                        with st.expander("🚗 Veículo", expanded=True):
+                            veiculo_sel = st.selectbox(
+                                "Selecione o veículo", 
+                                veiculos_opcoes,
+                                index=index_veiculo_atual,
+                                key="veiculo_temp"
+                            )
+                        novo_carro_id = None
+                        if veiculos_opcoes and veiculo_sel != "Nenhum veículo disponível":
+                            novo_carro_id = int(str(veiculo_sel).split(" - ")[0])
+
+                        if novo_carro_id and not carros_disponiveis.empty:
+                            carro_selecionado = carros_disponiveis[carros_disponiveis["id"] == novo_carro_id].iloc[0].to_dict()
+                        else:
+                            carro_selecionado = {
+                                'diaria': reserva.get('diaria')
+                            }
+
+                        # Seção de Valores
+                        with st.expander("💰 Valores e Pagamento", expanded=True):
+                            col_v1, col_v2 = st.columns(2)
+                            desconto = col_v1.number_input(
+                                "Desconto (R$)",
+                                min_value=0.0,
+                                value=float(reserva.get("desconto_cliente") or 0.0),
+                                step=10.0,
+                                format="%.2f",
+                                key="desconto_temp",
+                                help="Valor de desconto a ser aplicado no total da locação"
+                            )
+                            adiantamento = col_v2.number_input(
+                                "Adiantamento (R$)",
+                                min_value=0.0,
+                                value=float(reserva.get("adiantamento") or 0.0),
+                                step=10.0,
+                                format="%.2f",
+                                key="adiantamento_temp",
+                                help="Valor já pago pelo cliente"
+                            )
+                        
+                        # Seção de Configurações
+                        with st.expander("⚙️ Configurações", expanded=False):
+                            col_o1, col_o2 = st.columns(2)
+                            meia_diaria = col_o1.checkbox(
+                                "Meia diária", 
+                                value=bool(reserva.get("meia_diaria")),
+                                key="meia_diaria_temp",
+                                help="Cobra meia diária no último dia (devolução)"
+                            )
+                            km_franquia = col_o2.number_input(
+                                "KM Franquia",
+                                min_value=0,
+                                value=int(reserva.get("km_franquia") or 0),
+                                step=50,
+                                help="Limite de KM incluídos na diária"
+                            )
+
+                        # Resumo dos Valores
+                        st.markdown("### 📊 Resumo dos Valores")
+                        
+                        dias_calc = max(1, (nova_data_fim - nova_data_inicio).days)
+                        diaria_calc = Decimal(str(carro_selecionado.get('diaria', reserva.get('diaria', 0))))
+                        
+                        # Usar valores dos inputs com session_state
+                        meia_diaria_calc = st.session_state.get('meia_diaria_temp', bool(reserva.get("meia_diaria")))
+                        desconto_calc = st.session_state.get('desconto_temp', float(reserva.get("desconto_cliente") or 0.0))
+                        adiantamento_calc = st.session_state.get('adiantamento_temp', float(reserva.get("adiantamento") or 0.0))
+                        
+                        if meia_diaria_calc and dias_calc > 0:
+                            valor_diarias_calc = diaria_calc * Decimal(str(dias_calc - 1)) + (diaria_calc * Decimal('0.5'))
+                        else:
+                            valor_diarias_calc = diaria_calc * Decimal(str(dias_calc))
+                        
+                        total_calc = valor_diarias_calc - Decimal(str(desconto_calc))
+                        restante_calc = float(total_calc) - float(adiantamento_calc)
+                        
+                        # Layout mais compacto para métricas
+                        col_r1, col_r2 = st.columns(2)
+                        with col_r1:
+                            st.metric("📅 Período", f"{dias_calc} dia(s)")
+                            st.metric("💵 Subtotal", formatar_moeda(float(valor_diarias_calc)))
+                        with col_r2:
+                            st.metric("💰 Total", formatar_moeda(float(total_calc)))
+                            if restante_calc > 0:
+                                st.metric("💳 Restante", formatar_moeda(restante_calc))
+                            elif restante_calc < 0:
+                                st.metric("🔄 Crédito", formatar_moeda(abs(restante_calc)))
+                            else:
+                                st.metric("✅ Situação", "Quitado")
+
+                        # Formulário e processamento dentro do fragment
+                        with st.form(f"form_salvar_reserva_{reserva_id}"):
+                            st.markdown("---")
+                            salvar = st.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True)
+                            
+                            # Processar o salvamento dentro do form
+                            if salvar:
+                                try:
+                                    if not novo_carro_id:
+                                        st.error("Selecione um veículo")
+                                    elif not check_vehicle_availability(novo_carro_id, nova_data_inicio, nova_data_fim, reserva_id):
+                                        st.error("Veículo indisponível")
+                                    else:
+                                        # Recalcular valores finais usando valores atualizados do session_state
+                                        dias_final = max(1, (nova_data_fim - nova_data_inicio).days)
+                                        diaria_final = Decimal(str(carro_selecionado.get('diaria', reserva.get('diaria', 0))))
+                                        
+                                        # Usar valores atualizados do session_state
+                                        meia_diaria_final = st.session_state.get('meia_diaria_temp', meia_diaria)
+                                        desconto_final = st.session_state.get('desconto_temp', desconto)
+                                        adiantamento_final = st.session_state.get('adiantamento_temp', adiantamento)
+                                        
+                                        if meia_diaria_final and dias_final > 0:
+                                            valor_diarias_final = diaria_final * Decimal(str(dias_final - 1)) + (diaria_final * Decimal('0.5'))
+                                        else:
+                                            valor_diarias_final = diaria_final * Decimal(str(dias_final))
+                                        
+                                        total_diarias_final = valor_diarias_final - Decimal(str(desconto_final))
+                                        novo_valor_total_final = total_diarias_final
+                                        valor_restante_final = float(novo_valor_total_final) - float(adiantamento_final)
+                                        
+                                        run_query(
+                                            """
+                                            UPDATE reservas SET
+                                                carro_id=%s,
+                                                data_inicio=%s,
+                                                data_fim=%s,
+                                                km_franquia=%s,
+                                                desconto_cliente=%s,
+                                                meia_diaria=%s,
+                                                total_diarias=%s,
+                                                valor_total=%s,
+                                                adiantamento=%s,
+                                                valor_restante=%s
+                                            WHERE id=%s
+                                            """,
+                                            (
+                                                novo_carro_id,
+                                                nova_data_inicio,
+                                                nova_data_fim,
+                                                int(km_franquia),
+                                                float(desconto_final),
+                                                bool(meia_diaria_final),
+                                                float(total_diarias_final),
+                                                float(novo_valor_total_final),
+                                                float(adiantamento_final),
+                                                float(valor_restante_final),
+                                                reserva_id,
+                                            ),
+                                        )
+                                        
+                                        if int(novo_carro_id) != int(carro_antigo_id):
+                                            run_query(
+                                                "UPDATE carros SET status=%s WHERE id=%s",
+                                                (STATUS_CARRO['DISPONIVEL'], carro_antigo_id),
+                                            )
+                                            run_query(
+                                                "UPDATE carros SET status=%s WHERE id=%s",
+                                                (STATUS_CARRO['RESERVADO'], novo_carro_id),
+                                            )
+
+                                        st.success("✅ Reserva atualizada com sucesso!")
+                                        time.sleep(1)
+                                        st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao atualizar reserva: {e}")
+
+                        return {
+                            'nova_data_inicio': nova_data_inicio,
+                            'nova_data_fim': nova_data_fim,
+                            'novo_carro_id': novo_carro_id,
+                            'carro_selecionado': carro_selecionado,
+                            'meia_diaria': meia_diaria,
+                            'desconto': desconto,
+                            'km_franquia': km_franquia,
+                            'adiantamento': adiantamento,
+                            'salvar': salvar
+                        }
+
+                    # Executar o fragmento
+                    dados_form = fragment_edicao_reserva()
+
+                else:
+                    st.info("Esta reserva não está em status editável por esta aba.")
 
 elif menu == "Entrega do veículo":
     render_section_header(
