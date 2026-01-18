@@ -1505,7 +1505,8 @@ elif menu == "Reservas":
                                 meia_diaria = st.checkbox(
                                     "Aplicar meia diária na retirada",
                                     value=False,
-                                    key="reserva_simples_meia"
+                                    key="reserva_simples_meia",
+                                    help="Aplica apenas meia diária no primeiro dia de locação"
                                 )
                             with col_opcoes[1]:
                                 desconto = st.number_input(
@@ -1514,7 +1515,8 @@ elif menu == "Reservas":
                                     value=0.0,
                                     step=10.0,
                                     format="%.2f",
-                                    key="reserva_simples_desconto"
+                                    key="reserva_simples_desconto",
+                                    help="Valor de desconto a ser aplicado na locação"
                                 )
                             with col_opcoes[2]:
                                 km_franquia = st.number_input(
@@ -1522,7 +1524,8 @@ elif menu == "Reservas":
                                     min_value=0,
                                     value=300,
                                     step=50,
-                                    key="reserva_simples_km_franquia"
+                                    key="reserva_simples_km_franquia",
+                                    help="Quantidade de quilômetros incluídos no valor da locação"
                                 )
                             
                             # Cálculo dos valores
@@ -1554,7 +1557,8 @@ elif menu == "Reservas":
                                 value=min(adiantamento_default, valor_total_float) if valor_total_float > 0 else 0.0,
                                 step=10.0,
                                 format="%.2f",
-                                key="reserva_simples_adiantamento"
+                                key="reserva_simples_adiantamento",
+                                help="Valor a ser pago como entrada para a locação"
                             )
                             valor_restante = valor_total - Decimal(str(adiantamento_input))
                             
