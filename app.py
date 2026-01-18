@@ -1641,9 +1641,10 @@ elif menu == "Reservas":
             df_exibir["Status"] = df_exibir["reserva_status"]
             df_exibir["Total"] = df_exibir["valor_total"].apply(formatar_moeda)
             df_exibir["Restante"] = df_exibir["valor_restante"].apply(formatar_moeda)
+            df_exibir["Adiantamento"] = df_exibir["adiantamento"].apply(formatar_moeda)
 
             st.dataframe(
-                df_exibir[["id", "Cliente", "Veículo", "Período", "Status", "Total", "Restante"]],
+                df_exibir[["id", "Cliente", "Veículo", "Período", "Status", "Total", "Adiantamento", "Restante"]],
                 width='stretch',
                 hide_index=True,
             )
