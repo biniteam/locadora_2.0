@@ -1823,7 +1823,6 @@ elif menu == "Reservas":
                                 data_inicio_original,
                                 data_fim_original,
                                 permitir_dia_devolucao=False,
-                                reserva_id_to_exclude=reserva_id,
                             )
 
                         veiculos_opcoes = format_vehicle_options(carros_disponiveis)
