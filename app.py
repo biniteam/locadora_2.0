@@ -2492,6 +2492,18 @@ elif menu == "Devolução":
                             format="%.2f", 
                             key="valor_outros"
                         )
+                         # Campo de desconto para o cliente
+                        st.markdown("#### Descontos")
+                        valor_desconto = st.number_input(
+                            "Desconto para Cliente (R$)", 
+                            min_value=0.0, 
+                            value=0.0, 
+                            step=10.0, 
+                            format="%.2f", 
+                            key="valor_desconto",
+                            help="Valor de desconto concedido ao cliente"
+                        )
+                        
                 # Cálculos finais
                 subtotal_sem_adiantamento = (
                     custo_diarias_com_desconto + 
@@ -2499,7 +2511,8 @@ elif menu == "Devolução":
                     Decimal(str(valor_lavagem)) + 
                     Decimal(str(valor_multas)) + 
                     Decimal(str(valor_danos)) + 
-                    Decimal(str(valor_outros))
+                    Decimal(str(valor_outros)) - 
+                    Decimal(str(valor_desconto))
                 )
                 total_final = subtotal_sem_adiantamento - Decimal(str(reserva.get('adiantamento', 0.0)))
                 
@@ -2524,6 +2537,7 @@ elif menu == "Devolução":
                         "Multas" if valor_multas > 0 else None,
                         "Danos ao Veículo" if valor_danos > 0 else None,
                         "Outros Custos" if valor_outros > 0 else None,
+                        "Desconto Concedido" if valor_desconto > 0 else None,
                         "**Subtotal**",
                         "(-) Adiantamento Pago",
                         f"**{label_total}**"
@@ -2535,6 +2549,7 @@ elif menu == "Devolução":
                         formatar_moeda(valor_multas) if valor_multas > 0 else None,
                         formatar_moeda(valor_danos) if valor_danos > 0 else None,
                         formatar_moeda(valor_outros) if valor_outros > 0 else None,
+                        f"-{formatar_moeda(valor_desconto)}" if valor_desconto > 0 else None,
                         f"**{formatar_moeda(subtotal_sem_adiantamento)}**",
                         f"-{formatar_moeda(reserva['adiantamento'])}",
                         f"**{valor_display}**"
