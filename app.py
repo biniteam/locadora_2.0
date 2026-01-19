@@ -1939,7 +1939,11 @@ elif menu == "Reservas":
                         # Formulário e processamento dentro do fragment
                         with st.form(f"form_salvar_reserva_{reserva_id}"):
                             st.markdown("---")
-                            salvar = st.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True)
+                            col_botoes = st.columns(2)
+                            with col_botoes[0]:
+                                salvar = st.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True)
+                            with col_botoes[1]:
+                                cancelar = st.form_submit_button("❌ Cancelar Reserva", type="secondary", use_container_width=True)
                             
                             # Processar o salvamento dentro do form
                             if salvar:
@@ -2013,6 +2017,31 @@ elif menu == "Reservas":
                                 except Exception as e:
                                     st.error(f"Erro ao atualizar reserva: {e}")
 
+                            # Processar o cancelamento dentro do form
+                            if cancelar:
+                                try:
+                                    # Confirmar cancelamento
+                                    st.warning("⚠️ Tem certeza que deseja cancelar esta reserva?")
+                                    if st.checkbox("Confirmar cancelamento da reserva", key=f"confirm_cancel_{reserva_id}"):
+                                        # Atualizar status da reserva para CANCELADA
+                                        run_query(
+                                            "UPDATE reservas SET reserva_status=%s WHERE id=%s",
+                                            (STATUS_RESERVA['CANCELADA'], reserva_id)
+                                        )
+                                        
+                                        # Atualizar status do veículo para DISPONIVEL
+                                        run_query(
+                                            "UPDATE carros SET status=%s WHERE id=%s",
+                                            (STATUS_CARRO['DISPONIVEL'], reserva['carro_id'])
+                                        )
+                                        
+                                        st.success("✅ Reserva cancelada com sucesso! Veículo liberado para nova locação.")
+                                        time.sleep(1)
+                                        st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao cancelar reserva: {e}")
+
+
                         return {
                             'nova_data_inicio': nova_data_inicio,
                             'nova_data_fim': nova_data_fim,
@@ -2022,7 +2051,8 @@ elif menu == "Reservas":
                             'desconto': desconto,
                             'km_franquia': km_franquia,
                             'adiantamento': adiantamento,
-                            'salvar': salvar
+                            'salvar': salvar,
+                            'cancelar': cancelar
                         }
 
                     # Executar o fragmento
