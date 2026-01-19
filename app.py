@@ -1828,6 +1828,17 @@ elif menu == "Reservas":
                                 data_fim_original,
                                 permitir_dia_devolucao=False,
                             )
+                            
+                            # Adicionar o veículo atual à lista de disponíveis
+                            if check_vehicle_availability(carro_antigo_id, data_inicio_original, data_fim_original, reserva_id):
+                                carro_atual_df = run_query_dataframe(
+                                    "SELECT id, marca, modelo, placa, diaria, preco_km, cor FROM carros WHERE id=%s",
+                                    (carro_antigo_id,),
+                                )
+                                if not carro_atual_df.empty:
+                                    carros_disponiveis = pd.concat([carros_disponiveis, carro_atual_df], ignore_index=True)
+                                    carros_disponiveis = carros_disponiveis.drop_duplicates(subset=["id"], keep="first")
+
 
                         veiculos_opcoes = format_vehicle_options(carros_disponiveis)
                         
