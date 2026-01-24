@@ -1047,16 +1047,18 @@ elif menu == "Dashboard":
     with col_agenda1:
         st.markdown("##### 📥 Devoluções Previstas (HOJE)")
         if not df_entradas.empty:
-            st.dataframe(df_entradas.rename(columns={'modelo': 'Modelo', 'placa': 'Placa', 'cliente': 'Cliente'}),
-                         width='stretch')
+            st.dataframe(df_entradas.rename(columns={'modelo': 'Modelo', 'placa': 'Placa', 'cliente': 'Cliente', 'horario_entrega': 'Horário de Retirada'}),
+                         width='stretch',
+                         hide_index=True)
         else:
             st.info("Nenhuma devolução agendada.")
 
     with col_agenda2:
         st.markdown("##### 📤 Entregas Agendadas (HOJE)")
         if not df_saidas.empty:
-            st.dataframe(df_saidas.rename(columns={'modelo': 'Modelo', 'placa': 'Placa', 'cliente': 'Cliente'}),
-                         width='stretch')
+            st.dataframe(df_saidas.rename(columns={'modelo': 'Modelo', 'placa': 'Placa', 'cliente': 'Cliente', 'horario_entrega': 'Horário de Retirada'}),
+                         width='stretch',
+                         hide_index=True)
         else:
             st.info("Nenhuma nova locação agendada.")
 
