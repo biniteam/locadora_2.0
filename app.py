@@ -111,16 +111,23 @@ def get_dashboard_data():
             FROM reservas
             WHERE reserva_status = 'Locada'
             AND data_fim::date = CURRENT_DATE
+        ),
+        troca_oleo AS (
+            SELECT COUNT(*) as total
+            FROM carros
+            WHERE status != %s
+            AND km_troca_oleo - km_atual <= 1000
         )
         SELECT 
             (SELECT COUNT(*) FROM carros WHERE status != %s) as total_carros,
             (SELECT total FROM locados) as carros_locados,
             (SELECT total FROM reservados) as carros_reservados,
             (SELECT total FROM faturamento) as faturamento_mensal,
-            (SELECT total FROM devolucoes_hoje) as devolucoes_hoje
+            (SELECT total FROM devolucoes_hoje) as devolucoes_hoje,
+            (SELECT total FROM troca_oleo) as carros_precisam_troca_oleo
     """
-    return run_query_dataframe(query, (STATUS_CARRO['EXCLUIDO'],)).iloc[0].to_dict()
-
+    return run_query_dataframe(query, (STATUS_CARRO['EXCLUIDO'], STATUS_CARRO['EXCLUIDO'])).iloc[0].to_dict()
+   
 
 # --- CONFIGURAÇÃO INICIAL E DESIGN SYSTEM ---
 st.set_page_config(page_title="Locadora Iguacu Veiculos", layout="wide", page_icon="🚗")
@@ -921,6 +928,12 @@ elif menu == "Dashboard":
     col5.metric("Devoluções Previstas Hoje", dashboard_data['devolucoes_hoje'])
 
     st.divider()
+
+    # --- ALERTA DE TROCA DE ÓLEO NA DASHBOARD ---
+    if dashboard_data['carros_precisam_troca_oleo'] > 0:
+        st.warning(f"{dashboard_data['carros_precisam_troca_oleo']} carros precisam de troca de óleo")
+        st.info("Por favor, verifique os carros que precisam de troca de óleo e agende a manutenção.")
+        st.divider()
 
     # --- CHECAGEM RÁPIDA DE DISPONIBILIDADE (CORRIGIDO) ---
     st.subheader("🗓️ Verificação Rápida de Disponibilidade")
