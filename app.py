@@ -909,7 +909,7 @@ elif menu == "Dashboard":
 
     # Saídas Previstas são reservas que precisam ser entregues hoje
     query_saidas_hoje = """
-        SELECT c.modelo, c.placa, cl.nome as cliente, r.data_inicio, r.data_fim, r.reserva_status
+        SELECT c.modelo, c.placa, cl.nome as cliente, r.data_inicio, r.data_fim, r.reserva_status, r.horario_entrega
         FROM carros c
         JOIN reservas r ON c.id = r.carro_id
         JOIN clientes cl ON r.cliente_id = cl.id
@@ -1013,7 +1013,8 @@ elif menu == "Dashboard":
                     'cliente': 'Cliente',
                     'data_fim': 'Devolução Prevista'
                 }),
-                width='stretch'
+                width='stretch',
+                hide_index=True
             )
         else:
             st.success("Nenhum veículo locado no momento.")
@@ -1028,9 +1029,11 @@ elif menu == "Dashboard":
                     'modelo': 'Modelo',
                     'placa': 'Placa',
                     'cliente': 'Cliente',
-                    'data_inicio': 'Data Prevista da Entrega'
+                    'data_inicio': 'Data Prevista da Entrega',
+                    'horario_entrega': 'Horário de Retirada'
                 }),
-                width='stretch'
+                width='stretch',
+                hide_index=True
             )
         else:
             st.info("Nenhuma reserva pendente de entrega.")
