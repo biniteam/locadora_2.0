@@ -1516,7 +1516,7 @@ elif menu == "Reservas":
                             st.markdown("### 💰 Detalhes da locação")
                             dias_periodo = max(1, (fim - inicio).days + 0)
                             
-                            col_opcoes = st.columns(3)
+                            col_opcoes = st.columns(4)
                             with col_opcoes[0]:
                                 meia_diaria = st.checkbox(
                                     "Aplicar meia diária na retirada",
@@ -1543,6 +1543,14 @@ elif menu == "Reservas":
                                     key="reserva_simples_km_franquia",
                                     help="Quantidade de quilômetros incluídos no valor da locação"
                                 )
+                            with col_opcoes[3]:
+                                horario_retirada = st.time_input(
+                                    "Horário de retirada",
+                                    #value=datetime.now().time(),
+                                    value= "08:00",
+                                    key="reserva_simples_horario_retirada",
+                                    help="Horário previsto para retirada do veículo"
+                                )
                             
                             # Cálculo dos valores
                             diaria = Decimal(str(dados_carro['diaria']))
@@ -1559,10 +1567,11 @@ elif menu == "Reservas":
                             # For new reservation, valor_total should equal total_diarias (no additional costs yet)
                             valor_total = total_diarias
 
-                            col_metrics = st.columns(3)
+                            col_metrics = st.columns(4)
                             col_metrics[0].metric("Diárias", f"{dias_periodo} dia(s)")
                             col_metrics[1].metric("Valor estimado", formatar_moeda(valor_total))
                             col_metrics[2].metric("Franquia KM", f"{km_franquia} km")
+                            col_metrics[3].metric("Horário de retirada", horario_retirada.strftime("%H:%M"))
 
                             valor_total_float = float(valor_total)
                             adiantamento_default = float((valor_total * Decimal('0.5'))) if valor_total > 0 else 0.0
@@ -1590,9 +1599,9 @@ elif menu == "Reservas":
                                             carro_id, cliente_id, data_inicio, data_fim, status, reserva_status,
                                             km_saida, km_franquia, adiantamento,
                                             valor_multas, valor_danos, valor_outros,
-                                            desconto_cliente, meia_diaria, total_diarias, valor_total, valor_restante
+                                            desconto_cliente, meia_diaria, total_diarias, valor_total, valor_restante, horario_entrega
                                         )
-                                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                                         RETURNING id
                                         """,
                                         (
@@ -1613,6 +1622,7 @@ elif menu == "Reservas":
                                             float(total_diarias),
                                             float(valor_total),
                                             float(valor_restante),
+                                            horario_retirada.strftime("%H:%M")
                                         )
                                     )
                                     st.toast("Reserva criada com sucesso!", icon="✅")
