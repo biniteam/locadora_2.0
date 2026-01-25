@@ -3583,9 +3583,10 @@ elif menu == "Gerenciar Multas":
                             (carro['reserva_id'], tipo_multa, valor_multa, data_hora_infracao, local_infracao or None, observacao or None)
                         )
                         run_query(
-                            "UPDATE reservas SET status = 'Com Multa Pendente' WHERE id = %s",
-                            (carro['reserva_id'],)
+                            "UPDATE reservas SET valor_multas = %s WHERE id = %s",
+                            (valor_multa, carro['reserva_id'])
                         )
+                        
                         st.toast("Multa registrada com sucesso!", icon="✅")
                         st.success("✅ Multa registrada e reserva atualizada.")
                         st.session_state.multas_carros_result = None
