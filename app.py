@@ -2985,7 +2985,7 @@ elif menu == "Histórico":
         st.dataframe(
             df_display[[
                 'id', 'cliente', 'modelo', 'placa', 
-                'data_inicio', 'data_fim', 'valor_total', 'km_rodados', 'multas_info', 'valor_restante'
+                'data_inicio', 'data_fim', 'valor_total', 'km_rodados', 'multas_info', 'valor_restante', 'valor_total_multas'
             ]],
             column_config={
                 "id": "ID",
@@ -2997,7 +2997,8 @@ elif menu == "Histórico":
                 "valor_total": "Valor Total",
                 "km_rodados": "KM Rodados",
                 "multas_info": "Multas",
-                "valor_restante": "Valor Restante"
+                "valor_restante": "Valor Restante",
+                "valor_total_multas": "Valor Total Multas"
             },
             width='stretch',
             hide_index=True
