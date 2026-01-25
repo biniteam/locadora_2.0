@@ -1495,7 +1495,7 @@ elif menu == "Reservas":
                 st.success(f"✅ {len(carros_disponiveis)} veículos disponíveis para o período selecionado")
                 
                 # Mostrar cliente selection
-                clientes_df = run_query_dataframe("SELECT id, nome, cpf FROM clientes WHERE status = 'Ativo'")
+                clientes_df = run_query_dataframe("SELECT id, nome, cpf, observacoes FROM clientes WHERE status = 'Ativo'")
                 if clientes_df.empty:
                     st.warning("Cadastre pelo menos um cliente ativo para continuar.")
                 else:
@@ -1506,7 +1506,11 @@ elif menu == "Reservas":
                     
                     if cliente_sel != "Selecione o cliente...":
                         cliente_id = int(cliente_sel.split(" - ")[0])
-                        
+
+                        # Mostrar observações do cliente se existirem
+                        if clientes_df[clientes_df['id'] == cliente_id]['observacoes'].iloc[0]:
+                            st.info(f"Observações do cliente: {clientes_df[clientes_df['id'] == cliente_id]['observacoes'].iloc[0]}")
+                                                
                         # Mostrar veículos disponíveis
                         veiculos_opcoes = ["Selecione o veículo..."] + format_vehicle_options(carros_disponiveis)
                         carro_sel = st.selectbox("Veículos disponíveis", veiculos_opcoes, key="reserva_simples_carro")
