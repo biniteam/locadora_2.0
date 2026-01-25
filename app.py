@@ -3488,7 +3488,7 @@ elif menu == "Gerenciar Multas":
         resultado = run_query(
             """
             SELECT DISTINCT c.id, c.marca, c.modelo, c.placa, 
-                            cl.nome, cl.cpf, cl.cnh, r.id AS reserva_id,
+                            cl.id AS cliente_id, cl.nome, cl.cpf, cl.cnh, r.id AS reserva_id,
                             r.data_inicio, r.data_fim
             FROM carros c
             JOIN reservas r ON c.id = r.carro_id
@@ -3573,6 +3573,7 @@ elif menu == "Gerenciar Multas":
 
                 observacao = st.text_area("Observações adicionais (opcional)", key="campo_observacao_multa")
                 submit_multa = st.form_submit_button("🚨 Registrar multa", width='stretch')
+                observacao_cliente = f"Multas: {valor_multa}"
 
                 if submit_multa:
                     try:
@@ -3586,6 +3587,10 @@ elif menu == "Gerenciar Multas":
                         run_query(
                             "UPDATE reservas SET valor_multas = %s WHERE id = %s",
                             (valor_multa, carro['reserva_id'])
+                        )
+                        run_query(
+                            "UPDATE clientes SET observacoes = %s WHERE id = %s",
+                            (observacao_cliente, carro['cliente_id'])
                         )
                         
                         st.toast("Multa registrada com sucesso!", icon="✅")
