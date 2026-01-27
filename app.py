@@ -2647,12 +2647,17 @@ elif menu == "Devolução":
                     # Se há valor a pagar
                     st.info(f"Valor a ser pago: **{formatar_moeda(total_final)}**")
                     
+                    # Inicializa ou atualiza o valor no session_state quando total_final mudar
+                    if 'ultimo_total_final' not in st.session_state or st.session_state.ultimo_total_final != float(total_final):
+                        st.session_state.valor_pago_devolucao = float(total_final)
+                        st.session_state.ultimo_total_final = float(total_final)
+                    
                     # Campo para valor pago
                     valor_pago = st.number_input(
                         "Valor Recebido (R$)",
                         min_value=0.0,
                         max_value=float(total_final * 2),  # Convert to float for Streamlit compatibility
-                        value=float(total_final) if total_final > 0 else 0.0,
+                        value=st.session_state.valor_pago_devolucao,
                         step=1.0,
                         format="%.2f",
                         key="valor_pago_devolucao"
