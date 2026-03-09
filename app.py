@@ -1838,8 +1838,8 @@ elif menu == "Reservas":
                             )
                             
                             nova_data_fim = col_d2.date_input(
-                                "Devolução", 
-                                value=data_fim_original, 
+                                "Devolução",
+                                value=st.session_state.get("data_fim_edit", data_fim_original), 
                                 min_value=nova_data_inicio,
                                 key="data_fim_edit"
                             )
