@@ -1824,11 +1824,19 @@ elif menu == "Reservas":
                         # Seção de Datas
                         with st.expander("📅 Datas da Locação", expanded=True):
                             col_d1, col_d2 = st.columns(2)
+
+                            def _ajustar_data_fim():
+                                inicio = st.session_state["data_inicio_edit"]
+                                if st.session_state["data_fim_edit"] <= inicio:
+                                    st.session_state["data_fim_edit"] = inicio + timedelta(days=1)
+                                    
                             nova_data_inicio = col_d1.date_input(
                                 "Retirada", 
                                 value=data_inicio_original,
-                                key="data_inicio_edit"
+                                key="data_inicio_edit",
+                                on_change=_ajustar_data_fim
                             )
+                            
                             nova_data_fim = col_d2.date_input(
                                 "Devolução", 
                                 value=data_fim_original, 
