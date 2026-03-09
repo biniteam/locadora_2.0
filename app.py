@@ -1843,6 +1843,8 @@ elif menu == "Reservas":
                                 min_value=nova_data_inicio,
                                 key="data_fim_edit"
                             )
+                            # Lê o valor real após possível ajuste do callback
+                            nova_data_fim = st.session_state["data_fim_edit"]
 
                         datas_alteradas = (nova_data_inicio != data_inicio_original) or (nova_data_fim != data_fim_original)
 
