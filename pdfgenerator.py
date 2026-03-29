@@ -314,6 +314,7 @@ DATA DE DEVOLUCAO DO VEICULO: {data_fim.strftime('%d/%m/%Y')}
 
     # Linha de aviso em negrito
     pdf.set_font("Arial", "B", 12)
+    pdf.set_x(pdf.l_margin)  # garante que o cursor está na margem esquerda
     aviso = "PROIBIDO FUMAR DENTRO DO VEICULO. SUJEITO A MULTA DE R$ 500,00"
     pdf.multi_cell(0, 5, aviso.encode('latin-1', 'replace').decode('latin-1'))
     pdf.set_font("Arial", size=12)
