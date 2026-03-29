@@ -130,7 +130,7 @@ def get_dashboard_data():
    
 
 # --- CONFIGURAÇÃO INICIAL E DESIGN SYSTEM ---
-st.set_page_config(page_title="Locadora Iguacu Veiculos", layout="wide", page_icon="🚗")
+st.set_page_config(page_title="Locadora Iguaçu Veiculos", layout="wide", page_icon="🚗")
 
 THEME_COLORS = {
     "primary": "#1D4ED8",
@@ -613,7 +613,7 @@ with st.sidebar:
     st.markdown(
         """
         <div class="sidebar-logo">
-            <div class="sidebar-logo__title">Locadora Iguacu</div>
+            <div class="sidebar-logo__title">Locadora Iguaçu</div>
             <div class="sidebar-logo__subtitle">Operação e Gestão</div>
         </div>
         """,
