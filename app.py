@@ -387,7 +387,7 @@ def check_password():
         col1, col2, col3 = st.columns([1, 2, 1])
         
         with col2:
-            st.title("🔐 Locadora Iguacu Veículos")
+            st.title("🔐 Locadora Iguaçu Veículos")
             st.caption("Informe suas credenciais para acessar o sistema.")
 
             with st.form("login_form"):
