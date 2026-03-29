@@ -318,6 +318,7 @@ DATA DE DEVOLUCAO DO VEICULO: {data_fim.strftime('%d/%m/%Y')}
     aviso = "PROIBIDO FUMAR DENTRO DO VEICULO. SUJEITO A MULTA DE R$ 500,00"
     pdf.multi_cell(0, 5, aviso.encode('latin-1', 'replace').decode('latin-1'))
     pdf.set_font("Arial", size=12)
+    pdf.set_x(pdf.l_margin)  # garante que o cursor está na margem esquerda
 
     # Rodapé com assinatura e data
     pdf.multi_cell(0, 5, texto_rodape.encode('latin-1', 'replace').decode('latin-1'))
