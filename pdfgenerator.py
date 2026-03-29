@@ -298,9 +298,9 @@ DATA DE ENTREGA DO VEICULO AO CLIENTE: {data_inicio.strftime('%d/%m/%Y')}{f' as 
 
 Declaro que conferi o estado do veiculo ora entregue para locacao, recebendo-o por este termo
 conforme contrato de locacao de veiculos firmado.
+"""
 
-**PROIBIDO FUMAR DENTRO DO VEICULO. SUJEITO A MULTA DE R$ 500,00**
-
+    texto_rodape = f"""
 ____________________________________
 {cliente['nome'].upper()}
 
@@ -308,9 +308,18 @@ Capanema, {formatar_data_portugues(date.today())}.
 
 DATA DE DEVOLUCAO DO VEICULO: {data_fim.strftime('%d/%m/%Y')}
 """
-    
-    # Adiciona o texto ao PDF (usa latin-1 para compatibilidade com acentos)
+
+    # Adiciona o texto principal ao PDF (usa latin-1 para compatibilidade com acentos)
     pdf.multi_cell(0, 5, texto.encode('latin-1', 'replace').decode('latin-1'))
+
+    # Linha de aviso em negrito
+    pdf.set_font("Arial", "B", 12)
+    aviso = "PROIBIDO FUMAR DENTRO DO VEICULO. SUJEITO A MULTA DE R$ 500,00"
+    pdf.multi_cell(0, 5, aviso.encode('latin-1', 'replace').decode('latin-1'))
+    pdf.set_font("Arial", size=12)
+
+    # Rodapé com assinatura e data
+    pdf.multi_cell(0, 5, texto_rodape.encode('latin-1', 'replace').decode('latin-1'))
     #return pdf.output(dest="S")
     pdf_bytes = pdf.output(dest="S")
     return bytes(pdf_bytes)  # Converte bytearray → bytes
