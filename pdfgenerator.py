@@ -299,6 +299,7 @@ DATA DE ENTREGA DO VEICULO AO CLIENTE: {data_inicio.strftime('%d/%m/%Y')}{f' as 
 Declaro que conferi o estado do veiculo ora entregue para locacao, recebendo-o por este termo
 conforme contrato de locacao de veiculos firmado.
 
+**PROIBIDO FUMAR DENTRO DO VEICULO. SUJEITO A MULTA DE R$ 500,00**
 
 ____________________________________
 {cliente['nome'].upper()}
