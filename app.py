@@ -2,6 +2,7 @@
 import io
 import os
 import sys
+import logging
 import time
 from datetime import date, datetime, timedelta
 from decimal import Decimal, getcontext
@@ -2280,8 +2281,8 @@ elif menu == "Entrega do veículo":
             if conn:
                 try:
                     conn.close()
-                except Exception:
-                    pass
+                except Exception as close_err:
+                    logging.error(f"Erro ao fechar conexão: {close_err}")
 
     def finalizar_entrega_simples(**kwargs):
         return finalizar_entrega(
