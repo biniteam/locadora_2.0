@@ -364,8 +364,8 @@ class AuthManager:
                 INSERT INTO audit_logs (user_id, action, resource, details, ip_address)
                 VALUES (%s, %s, %s, %s, %s)
             """, (user_id, action, resource, details, ip_address))
-        except Exception:
-            pass  # Não falhar se log não funcionar
+        except Exception as e:
+            logging.error(f"Failed to log action: {e}")  # Não falhar se log não funcionar
 
     def get_users(self) -> list:
         """Retorna lista de usuários"""
